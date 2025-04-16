@@ -13,6 +13,7 @@ def handle_message(action, data, client_socket, gui_app):
             if user.check_password(password):
                 if not isinstance(user, User):
                     user = User(user.id, user.name, user.nickname, user.email)
+                    ## reather use a user method for this but no time. // lazzy lol
                 response = {
                     "status": "success",
                     "user": {
@@ -49,5 +50,5 @@ def handle_message(action, data, client_socket, gui_app):
             client_socket.send(f"Welcome, {nickname}! You have been registered.".encode())
             gui_app.log(f"[REGISTER] New user: {nickname} ({email})")
 
-    # Default return for other actions
+    # return for online status 
     return False

@@ -1,10 +1,11 @@
 # project MCT TKinter python socket project 
 To start the project you have to open the project folder.
 in the terminal run the command:
+start the server first:
 ```bash
 py -m Server.server
 ```
-and
+and then the client:
 ```bash
 py -m Client.client
 ```

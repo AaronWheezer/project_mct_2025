@@ -6,11 +6,12 @@ from Client.logic.communication import ClientConnection
 from shared.theme import THEME
 
 class AppGUI(tk.Frame):
-    def __init__(self, parent, controller, connection):
+    def __init__(self, parent, controller, connection , user ):
         super().__init__(parent, bg=THEME["bg"])
         self.controller = controller
         self.pack(fill="both", expand=True)
         self.connection = connection
+        self.logged_in_user = user
         
         # Keep connection with the server (signifying user is online)
         toplevel = self.winfo_toplevel()
@@ -29,7 +30,7 @@ class AppGUI(tk.Frame):
         self.tab_control.pack(expand=1, fill="both")
 
         # Home Tab Content
-        self.home_label = tk.Label(self.home_tab, text="Welcome to the Client App", font=("Segoe UI", 18, "bold"), bg=THEME["bg"], fg=THEME["fg"])
+        self.home_label = tk.Label(self.home_tab, text=f"Welcome to the Client App {self.logged_in_user.nickname}", font=("Segoe UI", 18, "bold"), bg=THEME["bg"], fg=THEME["fg"])
         self.home_label.pack(pady=20)
 
         # Query Tab Content
@@ -78,9 +79,17 @@ class AppGUI(tk.Frame):
         self.profile_label = tk.Label(self.profile_tab, text="Profile Information", font=("Segoe UI", 16, "bold"), bg=THEME["bg"], fg=THEME["fg"])
         self.profile_label.pack(pady=20)
 
-        # Placeholder Profile Info
-        self.profile_info = tk.Label(self.profile_tab, text="Name: John Doe\nNickname: johndoe123\nEmail: johndoe@email.com", font=("Segoe UI", 14), bg=THEME["bg"], fg=THEME["fg"])
+        # Profile Info from logged_in_user
+        self.profile_info = tk.Label(
+            self.profile_tab, 
+            text=f"Name: {self.logged_in_user.name}\nNickname: {self.logged_in_user.nickname}\nEmail: {self.logged_in_user.email}", 
+            font=("Segoe UI", 14), 
+            bg=THEME["bg"], 
+            fg=THEME["fg"]
+        )
         self.profile_info.pack(pady=10)
+        
+   
 
     def start_connection_watcher(self):
         def handle_disconnect():
@@ -106,6 +115,6 @@ class AppGUI(tk.Frame):
         self.results_label.config(text="Most common crime results will be shown here.")
         self.plot_label.config(text="Plot for common crime will appear here.")
 
-def start_app_gui(root , connection):
-    app = AppGUI(root, None , connection)
+def start_app_gui(root , connection, user):
+    app = AppGUI(root, None , connection, user)
     root.mainloop()

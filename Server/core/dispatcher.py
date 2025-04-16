@@ -1,6 +1,7 @@
 # Server/core/dispatcher.py
 from Server.database.queries import add_user, get_user_by_nickname
 from Server.models.user import User
+import json
 
 def handle_message(action, data, client_socket, gui_app):
     if action == "login":
@@ -10,9 +11,21 @@ def handle_message(action, data, client_socket, gui_app):
         user = get_user_by_nickname(nickname)
         if user:
             if user.check_password(password):
-                client_socket.send("Login successful".encode())
+                if not isinstance(user, User):
+                    user = User(user.id, user.name, user.nickname, user.email)
+                response = {
+                    "status": "success",
+                    "user": {
+                        "id": user.id,
+                        "name": user.name,
+                        "nickname": user.nickname,
+                        "email": user.email
+                    }
+                }
+
+                client_socket.send(json.dumps(response).encode())
                 gui_app.log(f"[LOGIN] {nickname} logged in.")
-                return True  # Indicate login was successful
+                return True
             else:
                 client_socket.send("Invalid password.".encode())
                 gui_app.log(f"[LOGIN FAILED] Invalid password for {nickname}")

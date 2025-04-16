@@ -3,7 +3,8 @@ from tkinter import messagebox
 from Client.logic.communication import ClientConnection
 from shared.theme import THEME
 from Client.gui.app_gui import start_app_gui  # Import the AppGUI class
-
+from Client.models.user import User
+import json
 class LoginFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg=THEME["bg"])
@@ -41,14 +42,30 @@ class LoginFrame(tk.Frame):
             return
 
         response = self.connection.send("login", {"nickname": nickname, "password": password})
-        if response == "Login successful":
-            # Clear the current window and start the main application GUI
+
+        # Parse the response to a dictionary if it's a JSON string
+        try:
+            if isinstance(response, str):
+                response = json.loads(response)  # Convert JSON string to dictionary
+        except json.JSONDecodeError as e:
+            print("Error parsing JSON response:", e)
+            response = {}
+
+        # Now check the response
+        if isinstance(response, dict) and response.get("status") == "success" and "user" in response:
+            user_data = response["user"]
+            self.logged_in_user = User(
+                id=user_data["id"],
+                name=user_data["name"],
+                nickname=user_data["nickname"],
+                email=user_data["email"]
+            )
             for widget in self.controller.winfo_children():
                 widget.destroy()  # Destroy all widgets in the current window
 
-            start_app_gui(self.controller, self.connection)  # Start the app GUI in the same window
+            start_app_gui(self.controller, self.connection ,self.logged_in_user)  # Start the app GUI in the same window
         else:
-            messagebox.showerror("Login Failed", response)
+            messagebox.showerror("Login Failed", "Invalid login credentials. Please try again.")
 
     def show_register(self):
         from Client.gui.register import RegisterFrame  # Lazy import to avoid circular import

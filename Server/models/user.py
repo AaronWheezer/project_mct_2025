@@ -38,3 +38,15 @@ class User:
 
     def check_password(self, password):
         return self.password == hash_password(password)
+    
+    def to_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "nickname": self.nickname,
+            "email": self.email
+        }
+    def __repr__(self):
+        return f"User(id={self.id}, name='{self.name}', nickname='{self.nickname}', email='{self.email}')"
+    def __str__(self):
+        return f"User: {self.nickname} ({self.name})"   

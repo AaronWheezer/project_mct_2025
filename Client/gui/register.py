@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from Client.logic.communication import ClientConnection
-from Client.gui.theme import THEME
+from shared.theme import THEME
 
 class RegisterFrame(tk.Frame):
     def __init__(self, parent, controller):

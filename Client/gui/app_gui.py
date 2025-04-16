@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from Client.logic.communication import ClientConnection
-from Client.gui.theme import THEME
+from shared.theme import THEME
 
 class AppGUI(tk.Frame):
     def __init__(self, parent, controller, connection):

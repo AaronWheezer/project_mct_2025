@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from Client.logic.communication import ClientConnection
-from Client.gui.theme import THEME
+from shared.theme import THEME
 from Client.gui.app_gui import start_app_gui  # Import the AppGUI class
 
 class LoginFrame(tk.Frame):

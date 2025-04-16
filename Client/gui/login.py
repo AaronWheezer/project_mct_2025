@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from Client.logic.communication import send_message
 from Client.gui.theme import THEME
+from Client.gui.app_gui import start_app_gui  # Import the AppGUI class
 
 class LoginFrame(tk.Frame):
     def __init__(self, parent, controller):
@@ -40,8 +41,11 @@ class LoginFrame(tk.Frame):
 
         response = send_message("login", {"nickname": nickname, "password": password})
         if response == "Login successful":
-            messagebox.showinfo("Login", response)
-            # Add navigation to main app here
+            # Clear the current window and start the main application GUI
+            for widget in self.controller.winfo_children():
+                widget.destroy()  # Destroy all widgets in the current window
+
+            start_app_gui(self.controller)  # Start the app GUI in the same window
         else:
             messagebox.showerror("Login Failed", response)
 

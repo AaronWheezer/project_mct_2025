@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from Client.logic.communication import send_message
+from Client.logic.communication import ClientConnection
 from Client.gui.theme import THEME
 from Client.gui.app_gui import start_app_gui  # Import the AppGUI class
 
@@ -9,6 +9,7 @@ class LoginFrame(tk.Frame):
         super().__init__(parent, bg=THEME["bg"])
         self.controller = controller
         self.pack_widgets()
+        self.connection = ClientConnection()
 
     def pack_widgets(self):
         tk.Label(self, text="Login", font=("Segoe UI", 16, "bold"),
@@ -39,13 +40,13 @@ class LoginFrame(tk.Frame):
             messagebox.showwarning("Input Error", "Both fields are required!")
             return
 
-        response = send_message("login", {"nickname": nickname, "password": password})
+        response = self.connection.send("login", {"nickname": nickname, "password": password})
         if response == "Login successful":
             # Clear the current window and start the main application GUI
             for widget in self.controller.winfo_children():
                 widget.destroy()  # Destroy all widgets in the current window
 
-            start_app_gui(self.controller)  # Start the app GUI in the same window
+            start_app_gui(self.controller, self.connection)  # Start the app GUI in the same window
         else:
             messagebox.showerror("Login Failed", response)
 

@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from Client.logic.communication import send_message
+from Client.logic.communication import ClientConnection
 from Client.gui.theme import THEME
 
 class RegisterFrame(tk.Frame):
@@ -42,7 +42,7 @@ class RegisterFrame(tk.Frame):
             messagebox.showwarning("Input Error", "All fields are required!")
             return
 
-        response = send_message("register", {
+        response =  self.connection.send("register", {
             "name": name,
             "nickname": nickname,
             "email": email,

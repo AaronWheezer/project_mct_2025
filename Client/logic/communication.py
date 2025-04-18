@@ -32,3 +32,12 @@ class ClientConnection:
         except (ConnectionResetError, OSError):
             pass
         callback_on_disconnect()
+        
+    def receive(self, size=1024):
+        """Receive a specific number of bytes from the socket."""
+        try:
+            data = self.sock.recv(size)
+            return data.decode()  # Decode to string
+        except Exception as e:
+            print(f"[ERROR] Receiving data failed: {e}")
+            return ""

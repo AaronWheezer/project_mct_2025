@@ -4,11 +4,13 @@ from Server.database.db import init_db
 from shared.config import HOST, PORT
 from Server.core.handler import handle_client
 from Server.gui.server_gui import start_gui
+from Server.logic.plots import generate_plots
 
 gui_app = None
 
 def start_server():
     init_db() 
+    generate_plots() #comment out if you want to generate plots only once / not every time the server starts
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen()

@@ -7,5 +7,8 @@ THEME = {
     "accent": "#4a90e2",
     "accent_hover": "#357ABD",
     "font": ("Segoe UI", 12),
-    "entry_width": 30
+    "entry_width": 30,
+    "card_bg": "#2b2b2b",
+    "button_bg": "#0078d7",
+    "button_fg": "#ffffff",
 }

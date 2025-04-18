@@ -11,7 +11,7 @@ py -m Client.client
 ```
 
 TODO:
-- [ ] add requirements.txt file
+- [X] add requirements.txt file
 - [ ] fix client dependend on server to start
 - [ ] cleaner GUI using tkinter designer / figma
 - [ ] add more features to the client and server
@@ -19,3 +19,8 @@ TODO:
 - [ ] add more documentation to the project
 - [ ] comment the code
 - [ ] add more error handling to the project
+- [ ] fix code for plots from server to client
+- [ ] add implementation for client to request for plots / data from server
+- [ ] from server to all active clients message
+- [ ] show requests per client in the server
+- [ ] show popular requests in the server

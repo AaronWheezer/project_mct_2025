@@ -5,7 +5,6 @@ from PIL import Image, ImageTk
 import io
 import base64
 
-from Client.logic.communication import ClientConnection
 from Client.logic.initial_plots import fetch_initial_plots
 from shared.theme import THEME
 
@@ -35,7 +34,7 @@ class AppGUI(tk.Frame):
         self.setup_query_tab()
         self.setup_profile_tab()
         self.load_initial_plots()
-
+        self.start_connection_watcher()
     def setup_home_tab(self):
         self.home_label = tk.Label(
             self.home_tab, 
@@ -97,37 +96,55 @@ class AppGUI(tk.Frame):
             if not encoded_plots:
                 return
 
-            # Clear the previous plot images
-            for widget in self.plot_container.winfo_children():
-                widget.destroy()
+            # Use `after` to update the GUI on the main thread
+            def update_gui():
+                # Clear the previous plot images
+                for widget in self.plot_container.winfo_children():
+                    widget.destroy()
 
-            self.plot_images.clear()
+                self.plot_images.clear()
 
-            for encoded_image in encoded_plots:
-                try:
-                    image_data = base64.b64decode(encoded_image)
-                    image = Image.open(io.BytesIO(image_data)).resize((400, 300))
-                    photo = ImageTk.PhotoImage(image)
-                    label = tk.Label(self.plot_container, image=photo, bg=THEME["bg"])
-                    label.image = photo  
-                    label.pack(side="left", padx=10)
-                    self.plot_images.append(photo)
+                for encoded_image in encoded_plots:
+                    try:
+                        image_data = base64.b64decode(encoded_image)
+                        image = Image.open(io.BytesIO(image_data)).resize((400, 300))
+                        photo = ImageTk.PhotoImage(image)
+                        label = tk.Label(self.plot_container, image=photo, bg=THEME["bg"])
+                        label.image = photo  
+                        label.pack(side="left", padx=10)
+                        self.plot_images.append(photo)
 
-                except Exception as e:
-                    print(f"[ERROR] Failed to load image: {e}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to load image: {e}")
+            
+            # Use `after()` to run the GUI update in the main thread
+            self.after(0, update_gui)
 
         threading.Thread(target=task, daemon=True).start()
 
     def start_connection_watcher(self):
-        def handle_disconnect():
-            self.controller.after(0, self.logout_due_to_disconnect)
+        """Ensure we are only starting the listener once and handle disconnects properly."""
 
-        threading.Thread(target=ClientConnection.listen_to_server, args=(handle_disconnect,), daemon=True).start()
+            # Only start the listener if it's not already running
+        if self.connection.listener_thread is None or not self.connection.listener_thread.is_alive():
+            threading.Thread(target=self.connection.listen_to_server, args=(self.handle_disconnect,), daemon=True).start()
 
+    def handle_disconnect(self):
+        # This method will be called when the server disconnects
+            if self.controller:
+                self.controller.after(0, self.logout_due_to_disconnect)
+            else:
+                self.after(0, self.logout_due_to_disconnect)  # Use self if controller is None
     def logout_due_to_disconnect(self):
-        from Client.gui.login import LoginFrame
-        messagebox.showerror("Disconnected", "Server disconnected. Logging out...")
-        self.controller.show_frame(LoginFrame)
+        """Handle logout due to server disconnection by closing the application."""
+        messagebox.showerror("Disconnected", "Server disconnected. The application will now close.")
+        if self.controller:
+            self.controller.destroy()  # Close the entire application
+        else:
+            self.quit()  # Fallback to quit if controller is not available
+        # Explicitly terminate the program
+        import sys
+        sys.exit(0)
 
     def show_age_distribution(self):
         self.results_label.config(text="Age distribution results will be shown here.")
@@ -138,5 +155,5 @@ class AppGUI(tk.Frame):
         self.plot_label.config(text="Plot for common crime will appear here.")
 
 def start_app_gui(root, connection, user):
-    app = AppGUI(root, None, connection, user)
+    app = AppGUI(root, root, connection, user)
     root.mainloop()

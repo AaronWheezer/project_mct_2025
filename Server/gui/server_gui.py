@@ -32,6 +32,7 @@ class ServerGUI:
 
         self.setup_log_tab()
         self.setup_users_tab()
+        self.setup_message_tab()
 
         self.shutdown_button = tk.Button(
             root,
@@ -54,6 +55,46 @@ class ServerGUI:
         )
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
+    def setup_message_tab(self):
+        """Set up the 'Message' tab in the GUI."""
+        self.message_frame = tk.Frame(self.notebook, bg="white")
+        self.notebook.add(self.message_frame, text="Message")
+
+        # Message input field
+        self.message_entry = tk.Entry(self.message_frame, font=("Segoe UI", 12), bg="lightgray", fg="black")
+        self.message_entry.pack(pady=10, padx=10, fill=tk.X)
+
+        # Send message button
+        self.send_button = tk.Button(
+            self.message_frame,
+            text="Send Message",
+            font=("Segoe UI", 12, "bold"),
+            bg="blue",
+            fg="white",
+            command=self.send_broadcast_message
+        )
+        self.send_button.pack(pady=10)
+
+        # Online users label
+        self.online_users_label = tk.Label(
+            self.message_frame,
+            text="Online Users:",
+            font=("Segoe UI", 12, "bold"),
+            bg="white",
+            fg="black"
+        )
+        self.online_users_label.pack(pady=10)
+
+        # Online users Treeview
+        self.online_users_tree = ttk.Treeview(
+            self.message_frame,
+            columns=("Username",),
+            show="headings",
+            height=5
+        )
+        self.online_users_tree.heading("Username", text="Username")
+        self.online_users_tree.column("Username", width=200)
+        self.online_users_tree.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
     def setup_users_tab(self):
         refresh_btn = tk.Button(
             self.users_frame,
@@ -112,7 +153,26 @@ class ServerGUI:
     def refresh_users_tabs(self):
         self.refresh_online_users()
         self.refresh_all_users()
+        
 
+    def send_broadcast_message(self):
+            """Send the message entered in the input field to all connected clients."""
+            message = self.message_entry.get()
+            if message:
+                self.broadcast_message(message)
+                self.message_entry.delete(0, tk.END)  # Clear the input field
+
+    def broadcast_message(self, message):
+        """Send a message to all connected clients."""
+        for client in self.clients:
+            print(f"[BROADCAST] Sending message to {client['username']}")
+            try:
+                if client['socket'].fileno() != -1:  # Check if the socket is still open
+                    print(f"[BROADCAST] open socket {client['username']}")
+                    client['socket'].sendall(f"[BROADCAST] {message}".encode())
+            except Exception as e:
+                print(f"[ERROR] Could not send message to {client['username']}: {e}")
+                
     def refresh_online_users(self):
         self.online_users_tree.delete(*self.online_users_tree.get_children())
         for client in self.clients:

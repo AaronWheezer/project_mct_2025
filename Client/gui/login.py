@@ -5,12 +5,18 @@ from shared.theme import THEME
 from Client.gui.app_gui import start_app_gui  # Import the AppGUI class
 from Client.models.user import User
 import json
+import threading
+
 class LoginFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg=THEME["bg"])
         self.controller = controller
         self.pack_widgets()
         self.connection = ClientConnection()
+        
+        # Start the connection listener in a background thread
+        # if not self.connection.listener_thread or not self.connection.listener_thread.is_alive():
+        #     threading.Thread(target=self.connection.listen_to_server, args=(self.handle_disconnect,), daemon=True).start()
 
     def pack_widgets(self):
         tk.Label(self, text="Login", font=("Segoe UI", 16, "bold"),
@@ -70,3 +76,13 @@ class LoginFrame(tk.Frame):
     def show_register(self):
         from Client.gui.register import RegisterFrame  # Lazy import to avoid circular import
         self.controller.show_frame(RegisterFrame)
+        
+    def handle_disconnect(self):
+        # Handle what happens when the client gets disconnected
+        print("Disconnected from server.")
+        messagebox.showwarning("Disconnected", "You have been disconnected from the server.")
+        self.controller.after(0, self.show_login_frame)  # Safely update the UI on the main thread
+        
+    def show_login_frame(self):
+        from Client.gui.login import LoginFrame  # Re-import to avoid circular import
+        self.controller.show_frame(LoginFrame)  # Show login frame again

@@ -1,10 +1,11 @@
 # Server/core/dispatcher.py
 from Server.database.queries import add_user, get_user_by_nickname
 from Server.models.user import User
-from Server.logic.plots import get_plot_images
+from Server.logic.plots import generate_plots
 import json
 from shared.config import PLOT_DIR
 import base64
+import struct
 def handle_message(action, data, client_socket, gui_app):
     if action == "login":
         nickname = data.get("nickname")
@@ -52,22 +53,21 @@ def handle_message(action, data, client_socket, gui_app):
             client_socket.send(f"Welcome, {nickname}! You have been registered.".encode())
             gui_app.log(f"[REGISTER] New user: {nickname} ({email})")
             return False
-                
-    # Server-side code
+                        
     elif action == "get_initial_plots":
-        plot_paths = get_plot_images()
-        
-        # Send the number of plots as 4-byte integer
-        client_socket.sendall(len(plot_paths).to_bytes(4, 'big'))  
-        
-        # Send the paths of the plots one by one
-        for path in plot_paths:
-            path_bytes = path.encode('utf-8')  # Convert string to bytes
-            path_length = len(path_bytes).to_bytes(4, 'big')  # Length of path in bytes
-            
-            # Send the length and then the actual path
-            client_socket.sendall(path_length)  # Send path length
-            client_socket.sendall(path_bytes)  # Send path itself as bytes
-        
-        gui_app.log("[INITIAL PLOTS] User app initialized and plot paths sent.")
-        return True
+        try:
+            plots_data = generate_plots()
+            plots_json = json.dumps(plots_data)
+            encoded = plots_json.encode('utf-8')
+            # Send the length of the data first (4 bytes, big-endian)
+            client_socket.sendall(struct.pack('>I', len(encoded)))
+            # Then send the actual data
+            client_socket.sendall(encoded)
+            gui_app.log("[INITIAL PLOTS] Plot data sent to the client.")
+            return True
+        except Exception as e:
+            gui_app.log(f"[ERROR] Failed to generate or send plot data: {e}")
+            error_json = json.dumps({"error": "Failed to generate plots"}).encode('utf-8')
+            client_socket.sendall(struct.pack('>I', len(error_json)))
+            client_socket.sendall(error_json)
+            return False

@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from shared.config import PLOT_DIR
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 
 DATA_PATH = "Server/database/Arrest_Data_from_2020_to_Present.csv"
 
@@ -22,52 +24,51 @@ def preprocess_data():
     return df
 
 def generate_plots():
-    if not os.path.exists(PLOT_DIR):
-        os.makedirs(PLOT_DIR)
-
     df = preprocess_data()
 
+    # Prepare data for each plot
+    plots_data = {}
 
-    plt.figure(figsize=(8, 6))
-    sns.histplot(df['Age'], bins=30, kde=True)
-    plt.title("Histogram of Age")
-    plt.savefig(f"{PLOT_DIR}/age_hist.png")
-    plt.close()
+    # Plot 1: Histogram of Age
+    age_hist_data = df['Age'].value_counts(bins=10).sort_index()  # Reduce bins for simplicity
+    plots_data['age_hist'] = {
+        "bins": [round(bin.mid, 1) for bin in age_hist_data.index],  # Midpoints of bins
+        "counts": [int(count) for count in age_hist_data.values]  # Counts per bin
+    }
 
     # Plot 2: Arrests over time (monthly)
     monthly = df['Arrest Date'].dt.to_period("M").value_counts().sort_index()
-    plt.figure(figsize=(12, 6))
-    monthly.plot(kind="line")
-    plt.title("Arrests Over Time (Monthly)")
-    plt.xlabel("Month")
-    plt.ylabel("Number of Arrests")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.savefig(f"{PLOT_DIR}/arrests_over_time.png")
-    plt.close()
+    plots_data['arrests_over_time'] = {
+        "months": [str(month) for month in monthly.index],  # Months as strings
+        "counts": [int(count) for count in monthly.values]  # Arrest counts per month
+    }
 
     # Plot 3: Countplot by gender
-    plt.figure(figsize=(6, 6))
-    sns.countplot(x='Sex Code', data=df)
-    plt.title("Arrests by Gender")
-    plt.savefig(f"{PLOT_DIR}/gender_count.png")
-    plt.close()
+    gender_counts = df['Sex Code'].value_counts()
+    plots_data['gender_count'] = {
+        "categories": [str(category) for category in gender_counts.index],  # Gender categories
+        "counts": [int(count) for count in gender_counts.values]  # Counts per gender
+    }
 
     # Plot 4: Boxplot of age per Descent Code
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(x='Descent Code', y='Age', data=df)
-    plt.title("Boxplot of Age by Descent Code")
-    plt.savefig(f"{PLOT_DIR}/age_box_descent.png")
-    plt.close()
+    descent_groups = df.groupby('Descent Code', observed=False)['Age'].apply(list)
+    plots_data['age_box_descent'] = {
+        "categories": [str(category) for category in descent_groups.index],  # Descent categories
+        "summary": {  # Send summary statistics instead of raw data
+            str(category): {
+                "min": int(min(ages)),
+                "max": int(max(ages)),
+                "median": int(pd.Series(ages).median()),
+                "q1": int(pd.Series(ages).quantile(0.25)),
+                "q3": int(pd.Series(ages).quantile(0.75))
+            }
+            for category, ages in descent_groups.items()
+        }
+    }
 
-    return [
-        f"{PLOT_DIR}/age_hist.png",
-        f"{PLOT_DIR}/arrests_over_time.png",
-        f"{PLOT_DIR}/gender_count.png",
-        f"{PLOT_DIR}/age_box_descent.png"
-    ]
+    return plots_data
 
-def get_plot_images():
-    plots = ["age_hist.png", "arrests_over_time.png", "gender_count.png", "age_box_descent.png"]
-    paths = [os.path.join(PLOT_DIR, name) for name in plots]
-    return paths
+# def get_plot_images():
+#     plots = ["age_hist.png", "arrests_over_time.png", "gender_count.png", "age_box_descent.png"]
+#     paths = [os.path.join(PLOT_DIR, name) for name in plots]
+#     return paths

@@ -2,8 +2,10 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
+from tkinter import Label
 import io
 import base64
+
 
 from Client.logic.initial_plots import fetch_initial_plots
 from shared.theme import THEME
@@ -35,16 +37,26 @@ class AppGUI(tk.Frame):
         self.setup_profile_tab()
         self.load_initial_plots()
         self.start_connection_watcher()
+
     def setup_home_tab(self):
         self.home_label = tk.Label(
             self.home_tab, 
             text=f"Welcome to the Client App {self.logged_in_user.nickname}",
-            font=("Segoe UI", 18, "bold"), bg=THEME["bg"], fg=THEME["fg"]
+            font=("Segoe UI", 22, "bold"), bg=THEME["bg"], fg=THEME["accent"]
         )
-        self.home_label.pack(pady=20)
+        self.home_label.pack(pady=(30, 10))
 
-        self.plot_container = tk.Frame(self.home_tab, bg=THEME["bg"])
-        self.plot_container.pack(pady=10)
+        # Modern grid container for plots
+        self.plot_grid = tk.Frame(self.home_tab, bg=THEME["bg"])
+        self.plot_grid.pack(expand=True, fill="both", padx=40, pady=20)
+
+        # Configure grid for 2x2 layout
+        for i in range(2):
+            self.plot_grid.columnconfigure(i, weight=1, uniform="col")
+            self.plot_grid.rowconfigure(i, weight=1, uniform="row")
+
+        # Placeholder for plot cards
+        self.plot_cards = []
 
     def setup_query_tab(self):
         self.query_container = tk.Frame(self.query_tab, bg=THEME["card_bg"])
@@ -91,36 +103,55 @@ class AppGUI(tk.Frame):
         self.profile_info.pack(pady=10)
 
     def load_initial_plots(self):
-        def task():
-            encoded_plots = fetch_initial_plots(self.connection)
-            if not encoded_plots:
-                return
+        """Load and display initial plots in the Home tab."""
+        try:
+            image_paths = fetch_initial_plots(self.connection)
+            plot_titles = [
+                "Histogram of Age",
+                "Arrests Over Time (Monthly)",
+                "Arrests by Gender",
+                "Boxplot of Age by Descent Code"
+            ]
 
-            # Use `after` to update the GUI on the main thread
-            def update_gui():
-                # Clear the previous plot images
-                for widget in self.plot_container.winfo_children():
-                    widget.destroy()
+            # Remove old cards if any
+            for card in getattr(self, "plot_cards", []):
+                card.destroy()
+            self.plot_cards = []
 
-                self.plot_images.clear()
+            for idx, (image_path, title) in enumerate(zip(image_paths, plot_titles)):
+                row, col = divmod(idx, 2)
+                # Card frame
+                card = tk.Frame(
+                    self.plot_grid,
+                    bg=THEME["card_bg"],
+                    highlightbackground="#444",
+                    highlightthickness=2,
+                    bd=0,
+                    relief="ridge"
+                )
+                card.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
+                self.plot_cards.append(card)
 
-                for encoded_image in encoded_plots:
-                    try:
-                        image_data = base64.b64decode(encoded_image)
-                        image = Image.open(io.BytesIO(image_data)).resize((400, 300))
-                        photo = ImageTk.PhotoImage(image)
-                        label = tk.Label(self.plot_container, image=photo, bg=THEME["bg"])
-                        label.image = photo  
-                        label.pack(side="left", padx=10)
-                        self.plot_images.append(photo)
+                # Title
+                title_label = tk.Label(
+                    card,
+                    text=title,
+                    font=("Segoe UI", 14, "bold"),
+                    bg=THEME["card_bg"],
+                    fg=THEME["accent"]
+                )
+                title_label.pack(pady=(12, 6))
 
-                    except Exception as e:
-                        print(f"[ERROR] Failed to load image: {e}")
-            
-            # Use `after()` to run the GUI update in the main thread
-            self.after(0, update_gui)
+                # Image
+                img = Image.open(image_path)
+                img = img.resize((340, 220), Image.Resampling.LANCZOS)
+                img_tk = ImageTk.PhotoImage(img)
+                img_label = tk.Label(card, image=img_tk, bg=THEME["card_bg"])
+                img_label.image = img_tk  # Keep reference
+                img_label.pack(padx=10, pady=(0, 12))
 
-        threading.Thread(target=task, daemon=True).start()
+        except Exception as e:
+            print(f"[ERROR] Failed to load initial plots: {e}")
 
     def start_connection_watcher(self):
         """Ensure we are only starting the listener once and handle disconnects properly."""

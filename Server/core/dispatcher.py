@@ -2,10 +2,17 @@
 from Server.database.queries import add_user, get_user_by_nickname
 from Server.models.user import User
 from Server.logic.plots import generate_plots
+from Server.logic.queries import (
+    get_arrests_by_time_period,
+    get_arrests_by_area,
+    get_age_distribution,
+    get_most_common_crime
+)
 import json
 from shared.config import PLOT_DIR
 import base64
 import struct
+
 def handle_message(action, data, client_socket, gui_app):
     if action == "login":
         nickname = data.get("nickname")
@@ -57,17 +64,62 @@ def handle_message(action, data, client_socket, gui_app):
     elif action == "get_initial_plots":
         try:
             plots_data = generate_plots()
-            plots_json = json.dumps(plots_data)
-            encoded = plots_json.encode('utf-8')
-            # Send the length of the data first (4 bytes, big-endian)
-            client_socket.sendall(struct.pack('>I', len(encoded)))
-            # Then send the actual data
-            client_socket.sendall(encoded)
+            send_with_length_prefix(client_socket, plots_data)
             gui_app.log("[INITIAL PLOTS] Plot data sent to the client.")
             return True
         except Exception as e:
             gui_app.log(f"[ERROR] Failed to generate or send plot data: {e}")
-            error_json = json.dumps({"error": "Failed to generate plots"}).encode('utf-8')
-            client_socket.sendall(struct.pack('>I', len(error_json)))
-            client_socket.sendall(error_json)
+            send_with_length_prefix(client_socket, {"error": "Failed to generate plots"})
             return False
+
+    elif action == "query_arrests_by_time_period":
+        try:
+            time_period = data.get("time_period")
+            result = get_arrests_by_time_period(time_period)
+            send_with_length_prefix(client_socket, result)
+            gui_app.log(f"[QUERY] Arrests by time period: {time_period}")
+        except Exception as e:
+            gui_app.log(f"[ERROR] Failed to process query: {e}")
+            send_with_length_prefix(client_socket, {"error": "Failed to process query"})
+
+    elif action == "query_arrests_by_area":
+        try:
+            area_id = data.get("area_id")
+            result = get_arrests_by_area(area_id)
+            send_with_length_prefix(client_socket, result)
+            gui_app.log(f"[QUERY] Arrests by area: {area_id}")
+        except Exception as e:
+            gui_app.log(f"[ERROR] Failed to process query: {e}")
+            send_with_length_prefix(client_socket, {"error": "Failed to process query"})
+
+    elif action == "query_age_distribution":
+        try:
+            result = get_age_distribution()
+            send_with_length_prefix(client_socket, result)
+            gui_app.log("[QUERY] Age distribution")
+        except Exception as e:
+            gui_app.log(f"[ERROR] Failed to process query: {e}")
+            send_with_length_prefix(client_socket, {"error": "Failed to process query"})
+
+    elif action == "query_most_common_crime":
+        try:
+            filter_value = data.get("filter")
+            result = get_most_common_crime(filter_value)
+            send_with_length_prefix(client_socket, result)
+            gui_app.log(f"[QUERY] Most common crime with filter: {filter_value}")
+        except Exception as e:
+            gui_app.log(f"[ERROR] Failed to process query: {e}")
+            send_with_length_prefix(client_socket, {"error": "Failed to process query"})
+
+def send_with_length_prefix(client_socket, data):
+    """Send data with a length prefix."""
+    try:
+        json_data = json.dumps(data).encode('utf-8')
+        print(f"[DEBUG] Sending data: {json_data.decode('utf-8')}")
+        print(f"[DEBUG] Length of JSON data: {len(json_data)}")
+        # Send the length of the data first (4 bytes, big-endian)
+        client_socket.sendall(struct.pack('>I', len(json_data)))
+        # Then send the actual data
+        client_socket.sendall(json_data)
+    except Exception as e:
+        print(f"[ERROR] Failed to send data with length prefix: {e}")

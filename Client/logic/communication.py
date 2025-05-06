@@ -16,8 +16,7 @@ class ClientConnection:
         try:
             message = json.dumps({"action": action, "data": data})
             self.sock.sendall(message.encode())
-            # Only receive a response for actions that expect a simple reply
-            if action not in ["get_initial_plots"]:
+            if action not in ["get_initial_plots"] and not action.startswith("query"):
                 response = self.sock.recv(BUFFER_SIZE).decode()
                 return response
             # For get_initial_plots, the caller should use receive_json()
@@ -48,17 +47,24 @@ class ClientConnection:
 
             self.listener_thread = threading.Thread(target=listen, daemon=True)
             self.listener_thread.start()
-            
+                
     def receive_json(self):
+        """Receive JSON data with a length prefix."""
         try:
             # Receive the length prefix (4 bytes)
             raw_len = self.sock.recv(4)
-            print(f"[DEBUG] Raw length received: {raw_len}")
             if not raw_len or len(raw_len) < 4:
                 print("[ERROR] Failed to receive length prefix.")
                 return None
+            print(f"[DEBUG] Raw length prefix: {raw_len}")
             msg_len = struct.unpack('>I', raw_len)[0]
             print(f"[DEBUG] Expected message length: {msg_len}")
+
+            # Sanity check for message length
+            if msg_len <= 0 or msg_len > 10**6:  # Limit to 1 MB
+                print("[ERROR] Invalid message length received.")
+                return None
+
             # Receive the actual JSON data
             buffer = b""
             while len(buffer) < msg_len:
@@ -67,22 +73,42 @@ class ClientConnection:
                     print("[ERROR] Connection closed before all data received.")
                     return None
                 buffer += chunk
-            return buffer.decode('utf-8')
+
+            # Decode and return the JSON data
+            json_data = buffer.decode('utf-8')
+            print(f"[DEBUG] Received raw data: {json_data}")
+            return json_data
         except Exception as e:
             print(f"[ERROR] Receiving JSON data failed: {e}")
             return None
-        
-    def receiveJSONSimple(self):
-        """Receive JSON data without length prefix."""
+    def query_json_receive(self):
+        """Receive JSON data without relying on a length prefix and handle errors gracefully."""
         try:
-            data = self.sock.recv(BUFFER_SIZE).decode()
-            if not data:
-                print("[ERROR] No data received.")
-                return None
-            return json.loads(data)
-        except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON decoding failed: {e}")
-            return None
+            # Read data from the socket until the end of the message
+            buffer = b""
+            while True:
+                chunk = self.sock.recv(BUFFER_SIZE)
+                if not chunk:
+                    print("[ERROR] Connection closed before all data received.")
+                    return None
+                buffer += chunk
+
+                # Try to decode the buffer as JSON
+                try:
+                    json_data = buffer.decode('utf-8')
+                    parsed_data = json.loads(json_data)  # Parse JSON into a Python dictionary
+                    print(f"[DEBUG] Received JSON data: {parsed_data}")
+
+                    # Check if the response contains an error
+                    if "error" in parsed_data:
+                        print(f"[ERROR] Server returned an error: {parsed_data['error']}")
+                        return {"error": parsed_data["error"]}
+
+                    # Return the parsed data if no error is present
+                    return parsed_data
+                except json.JSONDecodeError:
+                    # If decoding fails, continue reading more data
+                    continue
         except Exception as e:
-            print(f"[ERROR] Receiving data failed: {e}")
-            return None
+            print(f"[ERROR] Receiving JSON data failed: {e}")
+            return {"error": str(e)}

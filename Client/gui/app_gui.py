@@ -3,6 +3,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from Client.logic.initial_plots import fetch_initial_plots
+from Client.logic.queries import (
+    query_arrests_by_time_period,
+    query_arrests_by_area,
+    query_age_distribution,
+    query_most_common_crime
+)
 from shared.theme import THEME
 
 class AppGUI(tk.Frame):
@@ -11,17 +17,16 @@ class AppGUI(tk.Frame):
         self.controller = controller
         self.connection = connection
         self.logged_in_user = user
-        self.plot_images = []
 
         self.pack(fill="both", expand=True)
         toplevel = self.winfo_toplevel()
-        toplevel.geometry("1200x800")
+        toplevel.geometry("1000x600")
 
         # Modern, wide navigation tabs
         style = ttk.Style()
         style.theme_use('default')
         style.configure("TNotebook", background=THEME["bg"], borderwidth=0)
-        style.configure("TNotebook.Tab", font=("Segoe UI", 14, "bold"), padding=[30, 15], background=THEME["card_bg"], foreground=THEME["fg"])
+        style.configure("TNotebook.Tab", font=("Segoe UI", 16, "bold"), padding=[40, 20], background=THEME["card_bg"], foreground=THEME["fg"])
         style.map("TNotebook.Tab", background=[("selected", THEME["accent"])], foreground=[("selected", THEME["button_fg"])])
 
         self.tab_control = ttk.Notebook(self, style="TNotebook")
@@ -41,106 +46,206 @@ class AppGUI(tk.Frame):
         self.start_connection_watcher()
 
     def setup_home_tab(self):
-        self.home_label = tk.Label(
-            self.home_tab, 
-            text=f"Welcome to the Client App {self.logged_in_user.nickname}",
-            font=("Segoe UI", 22, "bold"), bg=THEME["bg"], fg=THEME["accent"]
+        # Main container: left nav + right plot
+        self.home_main = tk.Frame(self.home_tab, bg=THEME["bg"])
+        self.home_main.pack(expand=True, fill="both", padx=0, pady=0)
+
+        # Vertical navigation bar (links, gecentreerd)
+        self.plot_nav = tk.Frame(
+            self.home_main,
+            bg=THEME["bg"]
         )
-        self.home_label.pack(pady=(30, 10))
+        self.plot_nav.pack(side="left", fill="y", padx=(0, 0), pady=0, anchor="w", expand=False)
 
-        # Modern grid container for plots
-        self.plot_grid = tk.Frame(self.home_tab, bg=THEME["bg"])
-        self.plot_grid.pack(expand=True, fill="both", padx=40, pady=20)
+        # Spacer om verticaal te centreren
+        self.plot_nav.grid_rowconfigure(0, weight=1)
+        self.plot_nav.grid_rowconfigure(2, weight=1)
 
-        for i in range(2):
-            self.plot_grid.columnconfigure(i, weight=1, uniform="col")
-            self.plot_grid.rowconfigure(i, weight=1, uniform="row")
+        nav_inner = tk.Frame(self.plot_nav, bg=THEME["bg"])
+        nav_inner.grid(row=1, column=0, sticky="ns")
 
-        self.plot_cards = []
+        nav_label = tk.Label(
+            nav_inner,
+            text="Plots",
+            font=("Segoe UI", 18, "bold"),
+            bg=THEME["bg"],
+            fg=THEME["accent"]
+        )
+        nav_label.pack(pady=(10, 20))
+
+        self.plot_names = [
+            "Leeftijdsverdeling van arrestaties",
+            "Arrestaties per maand",
+            "Arrestaties per geslacht",
+            "Top 5 gebieden met meeste arrestaties",
+            "Top 5 meest voorkomende misdrijven"
+        ]
+        self.plot_buttons = []
+        for idx, name in enumerate(self.plot_names):
+            btn = tk.Label(
+                nav_inner,
+                text=name,
+                font=("Segoe UI", 13),
+                bg=THEME["card_bg"],
+                fg=THEME["fg"],
+                width=28,
+                height=2,
+                bd=0,
+                relief="flat",
+                anchor="w",
+                padx=18,
+                pady=2,
+                highlightthickness=2,
+                highlightbackground=THEME["bg"],
+                highlightcolor=THEME["accent"]
+            )
+            btn.pack(fill="x", pady=(0, 8))
+            btn.bind("<Button-1>", lambda e, i=idx: self.show_plot(i))
+            self.plot_buttons.append(btn)
+
+        # Plot display rechts
+        self.plot_display = tk.Frame(self.home_main, bg=THEME["card_bg"], bd=0, relief="ridge")
+        self.plot_display.pack(side="left", expand=True, fill="both", padx=(40, 0), pady=40)
+
+        self.plot_title_label = tk.Label(
+            self.plot_display,
+            text="",
+            font=("Segoe UI", 18, "bold"),
+            bg=THEME["card_bg"],
+            fg=THEME["accent"]
+        )
+        self.plot_title_label.pack(pady=(30, 10))
+
+        self.plot_img_label = tk.Label(self.plot_display, bg=THEME["card_bg"])
+        self.plot_img_label.pack(padx=20, pady=10, expand=True)
+
+        self.plot_summary_label = tk.Label(
+            self.plot_display,
+            text="",
+            font=("Segoe UI", 13),
+            bg=THEME["card_bg"],
+            fg=THEME["fg"],
+            anchor="w",
+            justify="left"
+        )
+        self.plot_summary_label.pack(padx=20, pady=(0, 20), anchor="w")
 
     def setup_query_tab(self):
-        # Full-width, modern card container
-        self.query_container = tk.Frame(self.query_tab, bg=THEME["card_bg"], bd=0, highlightthickness=0)
-        self.query_container.pack(expand=True, fill="both", padx=40, pady=30)
+        # Top bar with tabs (Comparison, Prediction, Overview, Equipment)
+        tab_bar = tk.Frame(self.query_tab, bg=THEME["bg"])
+        tab_bar.pack(fill="x", pady=(10, 0), padx=0)
 
-        title_label = tk.Label(
-            self.query_container, text="Search Queries", 
-            font=("Segoe UI", 24, "bold"), bg=THEME["card_bg"], fg=THEME["accent"]
-        )
-        title_label.pack(pady=(20, 10), anchor="w")
-
-        # Modern grid for queries
-        self.queries_frame = tk.Frame(self.query_container, bg=THEME["card_bg"])
-        self.queries_frame.pack(expand=True, fill="both", padx=10, pady=10)
-
-        # Query 1: Arrests per time period
-        q1_frame = self._make_query_card(
+        tab_names = [
             "Aantal arrestaties per tijdsperiode",
-            "Kies tijdsperiode (bijv. 'maand', 'week'):",
-            "Show Arrests per Time Period",
-            self.query_arrests_per_time_period
-        )
-        q1_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
-
-        # Query 2: Arrests per area
-        q2_frame = self._make_query_card(
             "Arrestaties per gebied",
-            "Geef Area ID op:",
-            "Show Arrests per Area",
-            self.query_arrests_per_area
-        )
-        q2_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
+            "Leeftijdsverdeling (grafiek)",
+            "Meest voorkomende misdrijf"
+        ]
+        self.query_tab_buttons = []
+        self.active_query_tab = tk.IntVar(value=0)
 
-        # Query 3: Leeftijdsverdeling (with plot)
-        q3_frame = self._make_query_card(
-            "Leeftijdsverdeling van arrestaties",
-            "Geef optioneel een filter op:",
-            "Show Age Distribution (with Plot)",
-            self.query_age_distribution
+        for idx, name in enumerate(tab_names):
+            btn = tk.Label(
+                tab_bar,
+                text=name,
+                font=("Segoe UI", 12, "bold"),
+                bg=THEME["accent"] if idx == 0 else THEME["card_bg"],
+                fg=THEME["button_fg"] if idx == 0 else THEME["fg"],
+                padx=10, pady=8,
+                bd=0,
+                relief="flat",
+                cursor="hand2"
+            )
+            btn.pack(side="left", padx=(0, 8))
+            btn.bind("<Button-1>", lambda e, i=idx: self.switch_query_tab(i))
+            self.query_tab_buttons.append(btn)
+
+        # Main card
+        self.query_main_card = tk.Frame(self.query_tab, bg=THEME["card_bg"], bd=0, relief="flat")
+        self.query_main_card.pack(expand=True, fill="both", padx=40, pady=(20, 30))
+
+        self.query_info_label = tk.Label(
+            self.query_main_card,
+            text="",
+            font=("Segoe UI", 15, "bold"),
+            bg=THEME["card_bg"],
+            fg=THEME["fg"],
+            anchor="w",
+            justify="left"
         )
-        q3_frame.grid(row=1, column=0, padx=20, pady=20, sticky="nsew")
+        self.query_info_label.pack(fill="x", padx=30, pady=(20, 10), anchor="w")
+
+        # Dynamic content frame
+        self.query_content_frame = tk.Frame(self.query_main_card, bg=THEME["card_bg"])
+        self.query_content_frame.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+
+        # Result card
+        self.query_result_card = tk.Frame(self.query_main_card, bg=THEME["entry_bg"], bd=0, relief="flat")
+        self.query_result_card.pack(fill="x", padx=20, pady=(0, 20))
+
+        self.query_result_label = tk.Label(
+            self.query_result_card,
+            text="Result will appear here.",
+            font=("Segoe UI", 13),
+            bg=THEME["entry_bg"],
+            fg=THEME["fg"],
+            anchor="w",
+            justify="left",
+            wraplength=700
+        )
+        self.query_result_label.pack(fill="x", padx=20, pady=16, anchor="w")
+
+        self.query_plot_label = tk.Label(self.query_result_card, bg=THEME["entry_bg"])
+        self.query_plot_label.pack(padx=20, pady=(0, 16))
+
+        self.switch_query_tab(0)  # Show first tab by default
+
+    def switch_query_tab(self, idx):
+        # Update tab styles
+        for i, btn in enumerate(self.query_tab_buttons):
+            if i == idx:
+                btn.config(bg=THEME["accent"], fg=THEME["button_fg"])
+            else:
+                btn.config(bg=THEME["card_bg"], fg=THEME["fg"])
+
+        # Clear previous content
+        for widget in self.query_content_frame.winfo_children():
+            widget.destroy()
+        self.query_result_label.config(text="Result will appear here.")
+        self.query_plot_label.config(image="")
+
+        # Query 1: Aantal arrestaties per tijdsperiode
+        if idx == 0:
+            self.query_info_label.config(text="Aantal arrestaties per tijdsperiode")
+            tk.Label(self.query_content_frame, text="Tijdsperiode (bijv. maand, week):", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
+            period_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
+            period_entry.pack(side="left", padx=(0, 10))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_time_period(period_entry.get()))
+            btn.pack(side="left")
+
+        # Query 2: Arrestaties per gebied
+        elif idx == 1:
+            self.query_info_label.config(text="Arrestaties per gebied")
+            tk.Label(self.query_content_frame, text="Area ID:", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
+            area_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
+            area_entry.pack(side="left", padx=(0, 10))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_area(area_entry.get()))
+            btn.pack(side="left")
+
+        # Query 3: Leeftijdsverdeling van arrestaties, met grafiek
+        elif idx == 2:
+            self.query_info_label.config(text="Leeftijdsverdeling van arrestaties (met grafiek)")
+            btn = tk.Button(self.query_content_frame, text="Genereer grafiek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=self.query_age_distribution)
+            btn.pack(side="left", padx=(0, 10))
 
         # Query 4: Meest voorkomende misdrijfomschrijving
-        q4_frame = self._make_query_card(
-            "Meest voorkomende misdrijfomschrijving",
-            "Geef optioneel een filter op:",
-            "Show Most Common Crime",
-            self.query_most_common_crime
-        )
-        q4_frame.grid(row=1, column=1, padx=20, pady=20, sticky="nsew")
-
-        self.queries_frame.columnconfigure((0, 1), weight=1)
-        self.queries_frame.rowconfigure((0, 1), weight=1)
-
-        # Results area
-        self.results_label = tk.Label(
-            self.query_container, text="Results will appear here.",
-            font=("Segoe UI", 13, "italic"), bg=THEME["card_bg"], fg=THEME["fg"], anchor="w", justify="left"
-        )
-        self.results_label.pack(fill="x", padx=20, pady=(10, 0))
-
-        self.plot_label = tk.Label(
-            self.query_container, text="Plots will appear here.",
-            font=("Segoe UI", 13, "italic"), bg=THEME["card_bg"], fg=THEME["fg"], anchor="w", justify="left"
-        )
-        self.plot_label.pack(fill="x", padx=20, pady=(0, 20))
-
-    def _make_query_card(self, title, entry_label, button_text, command):
-        card = tk.Frame(self.queries_frame, bg=THEME["bg"], bd=0, highlightbackground="#444", highlightthickness=2, relief="ridge")
-        card.grid_propagate(False)
-        card.columnconfigure(0, weight=1)
-        card.rowconfigure(2, weight=1)
-
-        title_label = tk.Label(card, text=title, font=("Segoe UI", 16, "bold"), bg=THEME["bg"], fg=THEME["accent"])
-        title_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 8))
-
-        entry = tk.Entry(card, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=30, relief="flat")
-        entry.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
-
-        button = tk.Button(card, text=button_text, font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: command(entry.get()))
-        button.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
-
-        return card
+        elif idx == 3:
+            self.query_info_label.config(text="Meest voorkomende misdrijfomschrijving")
+            tk.Label(self.query_content_frame, text="Optioneel filter:", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
+            filter_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
+            filter_entry.pack(side="left", padx=(0, 10))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_most_common_crime(filter_entry.get()))
+            btn.pack(side="left")
 
     def setup_profile_tab(self):
         self.profile_label = tk.Label(self.profile_tab, text="Profile Information", font=("Segoe UI", 16, "bold"), bg=THEME["bg"], fg=THEME["fg"])
@@ -158,51 +263,55 @@ class AppGUI(tk.Frame):
     def load_initial_plots(self):
         """Load and display initial plots in the Home tab."""
         try:
-            image_paths = fetch_initial_plots(self.connection)
-            plot_titles = [
-                "Histogram of Age",
-                "Arrests Over Time (Monthly)",
-                "Arrests by Gender",
-                "Boxplot of Age by Descent Code"
+            summary, image_paths = fetch_initial_plots(self.connection)
+            self.plot_images = []
+            self.plot_summaries = []
+
+            # Prepare summaries for each plot (customize as needed)
+            summaries = [
+                f"Totaal aantal arrestaties: {summary.get('total_arrests', '-')}",
+                f"Periode: {summary.get('date_range', '-')}",
+                f"Geslachten: {', '.join(str(x) for x in summary.get('genders', [])) if summary else '-'}",
+                f"Top gebieden: {summary.get('top_areas', '-') if summary else '-'}",
+                f"Meest voorkomende misdrijf: {summary.get('top_crime', '-')} ({summary.get('top_crime_count', '-')})"
             ]
 
-            for card in getattr(self, "plot_cards", []):
-                card.destroy()
-            self.plot_cards = []
-
-            for idx, (image_path, title) in enumerate(zip(image_paths, plot_titles)):
-                row, col = divmod(idx, 2)
-                card = tk.Frame(
-                    self.plot_grid,
-                    bg=THEME["card_bg"],
-                    highlightbackground="#444",
-                    highlightthickness=2,
-                    bd=0,
-                    relief="ridge"
-                )
-                card.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
-                self.plot_cards.append(card)
-
-                title_label = tk.Label(
-                    card,
-                    text=title,
-                    font=("Segoe UI", 14, "bold"),
-                    bg=THEME["card_bg"],
-                    fg=THEME["accent"]
-                )
-                title_label.pack(pady=(12, 6))
-
-                img = Image.open(image_path)
-                # Use modern Pillow resizing
+            from PIL import Image, ImageTk
+            for path in image_paths:
+                img = Image.open(path)
                 resample = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
-                img = img.resize((340, 220), resample)
+                img = img.resize((600, 350), resample)
                 img_tk = ImageTk.PhotoImage(img)
-                img_label = tk.Label(card, image=img_tk, bg=THEME["card_bg"])
-                img_label.image = img_tk
-                img_label.pack(padx=10, pady=(0, 12))
+                self.plot_images.append(img_tk)
+            self.plot_summaries = summaries
+
+            self.show_plot(0)  # Show the first plot by default
 
         except Exception as e:
             print(f"[ERROR] Failed to load initial plots: {e}")
+
+    def show_plot(self, idx):
+        self.current_plot_idx = idx
+        self.plot_title_label.config(text=self.plot_names[idx])
+        self.plot_img_label.config(image=self.plot_images[idx])
+        self.plot_img_label.image = self.plot_images[idx]
+        self.plot_summary_label.config(text=self.plot_summaries[idx])
+        # Highlight selected button
+        for i, btn in enumerate(self.plot_buttons):
+            if i == idx:
+                btn.config(
+                    bg=THEME["accent"],
+                    fg=THEME["button_fg"],
+                    highlightbackground=THEME["accent"],
+                    highlightcolor=THEME["accent"]
+                )
+            else:
+                btn.config(
+                    bg=THEME["card_bg"],
+                    fg=THEME["fg"],
+                    highlightbackground=THEME["bg"],
+                    highlightcolor=THEME["bg"]
+                )
 
     def start_connection_watcher(self):
         if self.connection.listener_thread is None or not self.connection.listener_thread.is_alive():
@@ -226,24 +335,64 @@ class AppGUI(tk.Frame):
     # --- Query Handlers ---
 
     def query_arrests_per_time_period(self, period):
-        # TODO: Implement server call and result display
-        self.results_label.config(text=f"Arrest count for period '{period}' will be shown here.")
-        self.plot_label.config(text="")
+        result = query_arrests_by_time_period(self.connection, period)
+        if "error" in result:
+            self.query_result_label.config(text=f"Error: {result['error']}")
+        else:
+            data = result["data"]
+            result_text = "\n".join([f"{key}: {value}" for key, value in data.items()])
+            self.query_result_label.config(text=f"Arrests by {period}:\n{result_text}")
 
     def query_arrests_per_area(self, area_id):
-        # TODO: Implement server call and result display
-        self.results_label.config(text=f"Arrest count for area '{area_id}' will be shown here.")
-        self.plot_label.config(text="")
+        result = query_arrests_by_area(self.connection, area_id)
+        if "error" in result:
+            self.query_result_label.config(text=f"Error: {result['error']}")
+        else:
+            self.query_result_label.config(text=f"Arrests in area {area_id}: {result['arrests']}")
 
-    def query_age_distribution(self, filter_value):
-        # TODO: Implement server call and result display
-        self.results_label.config(text=f"Age distribution (with plot) for filter '{filter_value}' will be shown here.")
-        self.plot_label.config(text="")
+    def query_age_distribution(self):
+        result = query_age_distribution(self.connection)
+        if "error" in result:
+            self.query_result_label.config(text=f"Error: {result['error']}")
+        else:
+            bins = result["bins"]
+            counts = result["counts"]
+            self.query_result_label.config(text="Age distribution plot below:")
+            self.display_plot(bins, counts, "Age Distribution", "Age", "Count")
 
     def query_most_common_crime(self, filter_value):
-        # TODO: Implement server call and result display
-        self.results_label.config(text=f"Most common crime for filter '{filter_value}' will be shown here.")
-        self.plot_label.config(text="")
+        result = query_most_common_crime(self.connection, filter_value)
+        if "error" in result:
+            self.query_result_label.config(text=f"Error: {result['error']}")
+        else:
+            self.query_result_label.config(text=f"Most common crime: {result['crime']} ({result['count']})")
+
+    def display_plot(self, bins, counts, title, xlabel, ylabel):
+        try:
+            import matplotlib.pyplot as plt
+            from io import BytesIO
+            from PIL import Image, ImageTk
+
+            plt.figure(figsize=(6, 4))
+            plt.bar(bins, counts, color=THEME["accent"], edgecolor=THEME["fg"])
+            plt.title(title, fontsize=14, color=THEME["accent"])
+            plt.xlabel(xlabel, fontsize=12, color=THEME["fg"])
+            plt.ylabel(ylabel, fontsize=12, color=THEME["fg"])
+            plt.xticks(color=THEME["fg"])
+            plt.yticks(color=THEME["fg"])
+            plt.tight_layout()
+
+            buffer = BytesIO()
+            plt.savefig(buffer, format="png", facecolor=THEME["bg"])
+            buffer.seek(0)
+            img = Image.open(buffer)
+            img_tk = ImageTk.PhotoImage(img)
+            self.query_plot_label.config(image=img_tk)
+            self.query_plot_label.image = img_tk
+            buffer.close()
+            plt.close()
+        except Exception as e:
+            self.query_result_label.config(text=f"Error displaying plot: {e}")
 
 def start_app_gui(root, connection, user):
     app = AppGUI(root, root, connection, user)

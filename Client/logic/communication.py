@@ -34,15 +34,23 @@ class ClientConnection:
                 try:
                     while True:
                         print("Waiting for data...")
-                        data = self.sock.recv(BUFFER_SIZE).decode()  # Decode as text
-                        if not data:
-                            break  # Disconnected
-                        # Handle broadcast messages
-                        if data.startswith("[BROADCAST]"):
-                            print(f"[BROADCAST] {data[len('[BROADCAST]'):]}")  # Ensure message is being handled
-                            messagebox.showinfo("Broadcast Message", data[len("[BROADCAST]"):])
+                        try:
+                            data = self.sock.recv(BUFFER_SIZE).decode('utf-8')  # Attempt to decode as UTF-8
+                            if not data:
+                                break  # Disconnected
+
+                            # Handle broadcast messages only
+                            if data.startswith("[BROADCAST]"):
+                                print(f"[BROADCAST] {data[len('[BROADCAST]'):]}")
+                                messagebox.showinfo("Broadcast Message", data[len("[BROADCAST]"):])
+                            else:
+                                # Ignore non-broadcast data
+                                print(f"[DEBUG] Ignored non-broadcast data: {data}")
+                        except UnicodeDecodeError as e:
+                            print(f"[ERROR] Failed to decode data: {e}")
+                            continue  # Skip this iteration and wait for the next message
                 except (ConnectionResetError, OSError) as e:
-                    print(f"Connection error: {e}")
+                    print(f"[ERROR] Connection error: {e}")
                 callback_on_disconnect()
 
             self.listener_thread = threading.Thread(target=listen, daemon=True)

@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
+from PIL import Image, ImageTk
 from Server.database.queries import get_all_users
 from Server.models.user import User
 from shared.theme import THEME
 import socket
+from Server.logic.plots import generate_top_searches_plot
 
 class ServerGUI:
     def __init__(self, root):
@@ -12,7 +14,7 @@ class ServerGUI:
         self.root.geometry("800x600")
         self.root.configure(bg=THEME["bg"])
         self.clients = []  # List to keep track of connected clients
-
+        
         style = ttk.Style()
         style.theme_use('default')
         style.configure("TNotebook", background=THEME["bg"])
@@ -29,10 +31,12 @@ class ServerGUI:
 
         self.notebook.add(self.log_frame, text="Logs")
         self.notebook.add(self.users_frame, text="Users")
-
+        self.top_searches_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.top_searches_frame, text="Top Searches")
         self.setup_log_tab()
         self.setup_users_tab()
         self.setup_message_tab()
+        self.setup_top_searches_tab()
 
         self.shutdown_button = tk.Button(
             root,
@@ -55,6 +59,39 @@ class ServerGUI:
         )
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
+    def setup_top_searches_tab(self):
+        """Set up the 'Top Searches' tab in the GUI."""
+        # Canvas for the pie chart
+        self.chart_canvas = tk.Canvas(self.top_searches_frame, bg="white", width=600, height=400)
+        self.chart_canvas.pack(pady=20)
+
+        # Refresh button
+        refresh_button = tk.Button(
+            self.top_searches_frame,
+            text="Refresh Chart",
+            font=("Segoe UI", 12, "bold"),
+            bg="blue",
+            fg="white",
+            command=self.refresh_top_searches_chart
+        )
+        refresh_button.pack(pady=10)
+        self.refresh_top_searches_chart()
+  
+
+    def refresh_top_searches_chart(self):
+        """Refresh the pie chart showing the popularity of search queries."""
+        plot_path = generate_top_searches_plot()
+        if plot_path:
+            # Load the generated plot
+            img = Image.open(plot_path)
+            img = img.resize((600, 400), Image.Resampling.LANCZOS)
+            self.chart_image = ImageTk.PhotoImage(img)
+
+            # Clear the canvas and display the new image
+            self.chart_canvas.delete("all")
+            self.chart_canvas.create_image(0, 0, anchor=tk.NW, image=self.chart_image)
+        else:
+            self.log("[INFO] No search requests to display.")
     def setup_message_tab(self):
         """Set up the 'Message' tab in the GUI."""
         self.message_frame = tk.Frame(self.notebook, bg="white")

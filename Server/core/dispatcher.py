@@ -1,5 +1,5 @@
 # Server/core/dispatcher.py
-from Server.database.queries import add_user, get_user_by_nickname
+from Server.database.queries import add_user, get_user_by_nickname ,log_search_request
 from Server.models.user import User
 from Server.logic.plots import generate_plots
 from Server.logic.queries import (
@@ -74,6 +74,8 @@ def handle_message(action, data, client_socket, gui_app):
 
     elif action == "query_arrests_by_time_period":
         try:
+            user_id = data.get("user_id")  # Zorg ervoor dat de client het user_id meestuurt
+            log_search_request(user_id, action)  # Log de zoekopdracht
             time_period = data.get("time_period")
             result = get_arrests_by_time_period(time_period)
             send_with_length_prefix(client_socket, result)
@@ -84,6 +86,8 @@ def handle_message(action, data, client_socket, gui_app):
 
     elif action == "query_arrests_by_area":
         try:
+            user_id = data.get("user_id")  # Zorg ervoor dat de client het user_id meestuurt
+            log_search_request(user_id, action)  # Log de zoekopdracht
             area_id = data.get("area_id")
             result = get_arrests_by_area(area_id)
             send_with_length_prefix(client_socket, result)
@@ -94,6 +98,8 @@ def handle_message(action, data, client_socket, gui_app):
 
     elif action == "query_age_distribution":
         try:
+            user_id = data.get("user_id")  # Zorg ervoor dat de client het user_id meestuurt
+            log_search_request(user_id, action)  # Log de zoekopdracht
             result = get_age_distribution()
             send_with_length_prefix(client_socket, result)
             gui_app.log("[QUERY] Age distribution")
@@ -103,6 +109,8 @@ def handle_message(action, data, client_socket, gui_app):
 
     elif action == "query_most_common_crime":
         try:
+            user_id = data.get("user_id")  # Zorg ervoor dat de client het user_id meestuurt
+            log_search_request(user_id, action)  # Log de zoekopdracht
             filter_value = data.get("filter")
             result = get_most_common_crime(filter_value)
             send_with_length_prefix(client_socket, result)

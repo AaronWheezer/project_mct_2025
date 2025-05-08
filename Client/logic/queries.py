@@ -1,6 +1,6 @@
-def query_arrests_by_time_period(connection, period):
+def query_arrests_by_time_period(connection, period , user_id):
     try:
-        connection.send("query_arrests_by_time_period", {"time_period": period})
+        connection.send("query_arrests_by_time_period", {"user_id": user_id,"time_period": period})
         response = connection.query_json_receive()
         print(f"[DEBUG] Query response: {response}")
         if "error" in response:
@@ -9,9 +9,9 @@ def query_arrests_by_time_period(connection, period):
     except Exception as e:
         return {"error": str(e)}
 
-def query_arrests_by_area(connection, area_id):
+def query_arrests_by_area(connection, area_id, user_id):
     try:
-        connection.send("query_arrests_by_area", {"area_id": area_id})
+        connection.send("query_arrests_by_area", {"user_id": user_id,"area_id": area_id})
         response = connection.query_json_receive()
         print(f"[DEBUG] Query response: {response}")
         if response is None:
@@ -22,9 +22,9 @@ def query_arrests_by_area(connection, area_id):
         print(f"[ERROR] Query failed: {e}")
         return {"error": str(e)}
 
-def query_age_distribution(connection):
+def query_age_distribution(connection, user_id):
     try:
-        connection.send("query_age_distribution", {})
+        connection.send("query_age_distribution", {"user_id": user_id})
         response = connection.query_json_receive()
         print(f"[DEBUG] Query response: {response}")
         if "error" in response:
@@ -33,9 +33,9 @@ def query_age_distribution(connection):
     except Exception as e:
         return {"error": str(e)}
 
-def query_most_common_crime(connection, filter_value):
+def query_most_common_crime(connection, filter_value , user_id):
     try:
-        connection.send("query_most_common_crime", {"filter": filter_value})
+        connection.send("query_most_common_crime", {"user_id": user_id,"filter": filter_value})
         response = connection.query_json_receive()
         if "error" in response:
             return {"error": response["error"]}

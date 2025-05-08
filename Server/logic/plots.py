@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
+from Server.database.queries import get_all_search_requests_count
 import os
 from shared.config import PLOT_DIR
 import warnings
@@ -70,3 +71,24 @@ def generate_plots():
     }
 
     return plots_data
+
+def generate_top_searches_plot():
+    """Generate a pie chart showing the popularity of search queries."""
+    
+    data = get_all_search_requests_count()
+
+    if not data:
+        print("[INFO] No search requests to display.")
+        return None
+
+    actions = [row[0] for row in data]
+    counts = [row[1] for row in data]
+
+    # Generate the pie chart
+    plt.figure(figsize=(8, 8))
+    plt.pie(counts, labels=actions, autopct='%1.1f%%', startangle=140)
+    plt.title("Popularity of Search Queries")
+    plot_path = os.path.join(PLOT_DIR, "top_searches.png")
+    plt.savefig(plot_path)
+    plt.close()
+    return plot_path

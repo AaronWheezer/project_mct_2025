@@ -198,6 +198,22 @@ class AppGUI(tk.Frame):
         self.query_plot_label = tk.Label(self.query_result_card, bg=THEME["entry_bg"])
         self.query_plot_label.pack(padx=20, pady=(0, 16))
 
+        # Add a dedicated frame for displaying plots
+        self.query_plot_frame = tk.Frame(self.query_tab, bg=THEME["card_bg"], bd=0, relief="flat")
+        self.query_plot_frame.pack(fill="both", expand=True, padx=40, pady=(0, 30))
+
+        self.query_plot_title = tk.Label(
+            self.query_plot_frame,
+            text="",
+            font=("Segoe UI", 16, "bold"),
+            bg=THEME["card_bg"],
+            fg=THEME["accent"]
+        )
+        self.query_plot_title.pack(pady=(10, 10))
+
+        self.query_plot_canvas = tk.Label(self.query_plot_frame, bg=THEME["card_bg"])
+        self.query_plot_canvas.pack(padx=20, pady=10, expand=True)
+
         self.switch_query_tab(0)  # Show first tab by default
 
     def switch_query_tab(self, idx):
@@ -220,7 +236,7 @@ class AppGUI(tk.Frame):
             tk.Label(self.query_content_frame, text="Tijdsperiode (bijv. maand, week):", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
             period_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
             period_entry.pack(side="left", padx=(0, 10))
-            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_time_period(period_entry.get()))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_time_period(period_entry.get() , self.logged_in_user.id))
             btn.pack(side="left")
 
         # Query 2: Arrestaties per gebied
@@ -229,13 +245,13 @@ class AppGUI(tk.Frame):
             tk.Label(self.query_content_frame, text="Area ID:", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
             area_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
             area_entry.pack(side="left", padx=(0, 10))
-            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_area(area_entry.get()))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_area(area_entry.get(), self.logged_in_user.id))
             btn.pack(side="left")
 
         # Query 3: Leeftijdsverdeling van arrestaties, met grafiek
         elif idx == 2:
             self.query_info_label.config(text="Leeftijdsverdeling van arrestaties (met grafiek)")
-            btn = tk.Button(self.query_content_frame, text="Genereer grafiek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=self.query_age_distribution)
+            btn = tk.Button(self.query_content_frame, text="Genereer grafiek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_age_distribution(self.logged_in_user.id))
             btn.pack(side="left", padx=(0, 10))
 
         # Query 4: Meest voorkomende misdrijfomschrijving
@@ -244,7 +260,7 @@ class AppGUI(tk.Frame):
             tk.Label(self.query_content_frame, text="Optioneel filter:", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
             filter_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
             filter_entry.pack(side="left", padx=(0, 10))
-            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_most_common_crime(filter_entry.get()))
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_most_common_crime(filter_entry.get(), self.logged_in_user.id))
             btn.pack(side="left")
 
     def setup_profile_tab(self):
@@ -334,8 +350,8 @@ class AppGUI(tk.Frame):
 
     # --- Query Handlers ---
 
-    def query_arrests_per_time_period(self, period):
-        result = query_arrests_by_time_period(self.connection, period)
+    def query_arrests_per_time_period(self, period, user_id):
+        result = query_arrests_by_time_period(self.connection, period , user_id)
         if "error" in result:
             self.query_result_label.config(text=f"Error: {result['error']}")
         else:
@@ -343,25 +359,25 @@ class AppGUI(tk.Frame):
             result_text = "\n".join([f"{key}: {value}" for key, value in data.items()])
             self.query_result_label.config(text=f"Arrests by {period}:\n{result_text}")
 
-    def query_arrests_per_area(self, area_id):
-        result = query_arrests_by_area(self.connection, area_id)
+    def query_arrests_per_area(self, area_id, user_id):
+        result = query_arrests_by_area(self.connection, area_id , user_id)
         if "error" in result:
             self.query_result_label.config(text=f"Error: {result['error']}")
         else:
             self.query_result_label.config(text=f"Arrests in area {area_id}: {result['arrests']}")
 
-    def query_age_distribution(self):
-        result = query_age_distribution(self.connection)
+    def query_age_distribution(self, user_id):
+        result = query_age_distribution(self.connection, user_id)
         if "error" in result:
             self.query_result_label.config(text=f"Error: {result['error']}")
         else:
             bins = result["bins"]
             counts = result["counts"]
-            self.query_result_label.config(text="Age distribution plot below:")
-            self.display_plot(bins, counts, "Age Distribution", "Age", "Count")
+            self.query_result_label.config(text="")  # Clear the small result label
+            self.display_plot(bins, counts, "Leeftijdsverdeling", "Leeftijd", "Aantal")
 
-    def query_most_common_crime(self, filter_value):
-        result = query_most_common_crime(self.connection, filter_value)
+    def query_most_common_crime(self, filter_value , user_id):
+        result = query_most_common_crime(self.connection, filter_value, user_id)
         if "error" in result:
             self.query_result_label.config(text=f"Error: {result['error']}")
         else:
@@ -373,22 +389,48 @@ class AppGUI(tk.Frame):
             from io import BytesIO
             from PIL import Image, ImageTk
 
-            plt.figure(figsize=(6, 4))
+            # Create the plot
+            plt.figure(figsize=(8, 5))  # Larger figure size
             plt.bar(bins, counts, color=THEME["accent"], edgecolor=THEME["fg"])
-            plt.title(title, fontsize=14, color=THEME["accent"])
-            plt.xlabel(xlabel, fontsize=12, color=THEME["fg"])
-            plt.ylabel(ylabel, fontsize=12, color=THEME["fg"])
+            plt.title(title, fontsize=16, color=THEME["accent"])
+            plt.xlabel(xlabel, fontsize=14, color=THEME["fg"])
+            plt.ylabel(ylabel, fontsize=14, color=THEME["fg"])
             plt.xticks(color=THEME["fg"])
             plt.yticks(color=THEME["fg"])
             plt.tight_layout()
 
+            # Save the plot to a buffer
             buffer = BytesIO()
             plt.savefig(buffer, format="png", facecolor=THEME["bg"])
             buffer.seek(0)
             img = Image.open(buffer)
             img_tk = ImageTk.PhotoImage(img)
-            self.query_plot_label.config(image=img_tk)
-            self.query_plot_label.image = img_tk
+
+            # Create a popup window
+            popup = tk.Toplevel(self)
+            popup.title(title)
+            popup.geometry("800x600")
+            popup.configure(bg=THEME["bg"])
+
+            # Add a label to display the plot
+            plot_label = tk.Label(popup, image=img_tk, bg=THEME["bg"])
+            plot_label.image = img_tk  # Keep a reference to avoid garbage collection
+            plot_label.pack(expand=True, fill="both", padx=20, pady=20)
+
+            # Add a close button
+            close_button = tk.Button(
+                popup,
+                text="Close",
+                font=("Segoe UI", 12, "bold"),
+                bg=THEME["button_bg"],
+                fg=THEME["button_fg"],
+                activebackground=THEME["accent_hover"],
+                activeforeground=THEME["fg"],
+                command=popup.destroy
+            )
+            close_button.pack(pady=10)
+
+            # Clean up
             buffer.close()
             plt.close()
         except Exception as e:

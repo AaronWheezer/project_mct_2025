@@ -7,6 +7,7 @@ class RegisterFrame(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg=THEME["bg"])
         self.controller = controller
+        self.connection = ClientConnection()
         self.pack_widgets()
 
     def pack_widgets(self):

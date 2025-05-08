@@ -32,3 +32,4 @@ def get_most_common_crime(filter_value=None):
     if most_common.empty:
         return {"error": "No crimes found for the given filter"}
     return {"crime": most_common.index[0], "count": int(most_common.values[0])}
+

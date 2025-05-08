@@ -7,6 +7,8 @@ import struct
 
 class ClientConnection:
     def __init__(self):
+        # if i put 0.0.0.0 here it will not work on the client side.
+        #hier moet ik dan localhost gebruiken  
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((HOST, PORT))
         self.username = None  # Initially, no username

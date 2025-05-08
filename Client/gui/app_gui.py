@@ -1,7 +1,6 @@
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
 from Client.logic.initial_plots import fetch_initial_plots
 from Client.logic.queries import (
     query_arrests_by_descent,

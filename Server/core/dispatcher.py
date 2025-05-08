@@ -3,7 +3,7 @@ from Server.database.queries import add_user, get_user_by_nickname ,log_search_r
 from Server.models.user import User
 from Server.logic.plots import generate_plots
 from Server.logic.queries import (
-    get_arrests_by_time_period,
+    get_arrests_by_descent,
     get_arrests_by_area,
     get_age_distribution,
     get_most_common_crime
@@ -72,14 +72,14 @@ def handle_message(action, data, client_socket, gui_app):
             send_with_length_prefix(client_socket, {"error": "Failed to generate plots"})
             return False
 
-    elif action == "query_arrests_by_time_period":
+    elif action == "query_arrests_by_descent":
         try:
             user_id = data.get("user_id")  # Zorg ervoor dat de client het user_id meestuurt
             log_search_request(user_id, action)  # Log de zoekopdracht
-            time_period = data.get("time_period")
-            result = get_arrests_by_time_period(time_period)
+            descent_code = data.get("descent_code")
+            result = get_arrests_by_descent(descent_code)
             send_with_length_prefix(client_socket, result)
-            gui_app.log(f"[QUERY] Arrests by time period: {time_period}")
+            gui_app.log(f"[QUERY] Arrests by descent code: {descent_code}")
         except Exception as e:
             gui_app.log(f"[ERROR] Failed to process query: {e}")
             send_with_length_prefix(client_socket, {"error": "Failed to process query"})

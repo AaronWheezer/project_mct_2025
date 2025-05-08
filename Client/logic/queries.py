@@ -1,14 +1,13 @@
-def query_arrests_by_time_period(connection, period , user_id):
+def query_arrests_by_descent(connection, descent_code, user_id):
+    """Request the number of arrests for a specific descent."""
     try:
-        connection.send("query_arrests_by_time_period", {"user_id": user_id,"time_period": period})
+        connection.send("query_arrests_by_descent", {"user_id": user_id, "descent_code": descent_code})
         response = connection.query_json_receive()
-        print(f"[DEBUG] Query response: {response}")
         if "error" in response:
             return {"error": response["error"]}
-        return {"data": response["data"]}
+        return response
     except Exception as e:
         return {"error": str(e)}
-
 def query_arrests_by_area(connection, area_id, user_id):
     try:
         connection.send("query_arrests_by_area", {"user_id": user_id,"area_id": area_id})

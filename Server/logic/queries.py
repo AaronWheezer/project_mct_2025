@@ -1,15 +1,6 @@
 import pandas as pd
 from Server.logic.plots import preprocess_data
 
-def get_arrests_by_time_period(time_period):
-    df = preprocess_data()
-    if time_period == "month":
-        result = df['Arrest Date'].dt.to_period("M").value_counts().sort_index().to_dict()
-    elif time_period == "week":
-        result = df['Arrest Date'].dt.to_period("W").value_counts().sort_index().to_dict()
-    else:
-        raise ValueError("Invalid time period. Use 'month' or 'week'.")
-    return {"time_period": time_period, "data": result}
 
 def get_arrests_by_area(area_id):
     df = preprocess_data()
@@ -23,6 +14,12 @@ def get_age_distribution():
         "bins": [round(bin.mid, 1) for bin in age_distribution.index],
         "counts": [int(count) for count in age_distribution.values]
     }
+    
+def get_arrests_by_descent(descent_code):
+    """Retrieve the number of arrests for a specific descent."""
+    df = preprocess_data()
+    result = df[df['Descent Code'] == descent_code].shape[0]
+    return {"descent_code": descent_code, "arrests": result}
 
 def get_most_common_crime(filter_value=None):
     df = preprocess_data()
@@ -32,4 +29,3 @@ def get_most_common_crime(filter_value=None):
     if most_common.empty:
         return {"error": "No crimes found for the given filter"}
     return {"crime": most_common.index[0], "count": int(most_common.values[0])}
-

@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from Client.logic.initial_plots import fetch_initial_plots
 from Client.logic.queries import (
-    query_arrests_by_time_period,
+    query_arrests_by_descent,
     query_arrests_by_area,
     query_age_distribution,
     query_most_common_crime
@@ -21,6 +21,23 @@ class AppGUI(tk.Frame):
         self.pack(fill="both", expand=True)
         toplevel = self.winfo_toplevel()
         toplevel.geometry("1000x600")
+ # Add a top bar for the logout button
+        self.top_bar = tk.Frame(self, bg=THEME["bg"])
+        self.top_bar.pack(fill="x", side="top", pady=(10, 0))
+
+        # Add the logout button
+        logout_button = tk.Button(
+            self.top_bar,
+            text="Logout",
+            font=("Segoe UI", 12, "bold"),
+            bg=THEME["button_bg"],
+            fg=THEME["button_fg"],
+            activebackground=THEME["accent_hover"],
+            activeforeground=THEME["fg"],
+            relief="flat",
+            command=self.logout
+        )
+        logout_button.pack(side="right", padx=(0, 20))
 
         # Modern, wide navigation tabs
         style = ttk.Style()
@@ -136,7 +153,7 @@ class AppGUI(tk.Frame):
         tab_bar.pack(fill="x", pady=(10, 0), padx=0)
 
         tab_names = [
-            "Aantal arrestaties per tijdsperiode",
+            "Aantal arrestaties per herkomst",
             "Arrestaties per gebied",
             "Leeftijdsverdeling (grafiek)",
             "Meest voorkomende misdrijf"
@@ -230,13 +247,30 @@ class AppGUI(tk.Frame):
         self.query_result_label.config(text="Result will appear here.")
         self.query_plot_label.config(image="")
 
-        # Query 1: Aantal arrestaties per tijdsperiode
+        # Query 1: Aantal arrestaties per tijdsdescente
         if idx == 0:
-            self.query_info_label.config(text="Aantal arrestaties per tijdsperiode")
-            tk.Label(self.query_content_frame, text="Tijdsperiode (bijv. maand, week):", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
-            period_entry = tk.Entry(self.query_content_frame, bg=THEME["entry_bg"], fg=THEME["fg"], insertbackground=THEME["fg"], font=THEME["font"], width=20, relief="flat")
-            period_entry.pack(side="left", padx=(0, 10))
-            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_per_time_period(period_entry.get() , self.logged_in_user.id))
+
+            
+            self.query_info_label.config(text="Aantal arrestaties per tijdsdescente")
+            tk.Label(self.query_content_frame, text="Descent code bv H,G,A:", font=THEME["font"], bg=THEME["card_bg"], fg=THEME["fg"]).pack(side="left", padx=(0, 10))
+            descent_entry = tk.Entry(
+                self.query_content_frame,
+                bg=THEME["entry_bg"],
+                fg=THEME["fg"],
+                insertbackground=THEME["fg"],
+                font=THEME["font"],
+                width=20,
+                relief="flat"
+            )
+            descent_entry.pack(side="left", padx=(0, 10))
+            tk.Label(
+                self.query_content_frame,
+                text="(H for Hindustani, G for Moroccan, A for Antillean, etc.)",
+                font=THEME["font"],
+                bg=THEME["card_bg"],
+                fg=THEME["fg"]
+            ).pack(side="top", pady=(5, 0))  # Use 'top' to stack it below the input field
+            btn = tk.Button(self.query_content_frame, text="Zoek", font=("Segoe UI", 12, "bold"), bg=THEME["button_bg"], fg=THEME["button_fg"], activebackground=THEME["accent_hover"], activeforeground=THEME["fg"], relief="flat", command=lambda: self.query_arrests_by_descent(descent_entry.get() , self.logged_in_user.id))
             btn.pack(side="left")
 
         # Query 2: Arrestaties per gebied
@@ -285,8 +319,8 @@ class AppGUI(tk.Frame):
 
             # Prepare summaries for each plot (customize as needed)
             summaries = [
-                f"Totaal aantal arrestaties: {summary.get('total_arrests', '-')}",
-                f"Periode: {summary.get('date_range', '-')}",
+                f"Totaal aantal arrestaties per descent: {summary.get('total_arrests', '-')}",
+                f"descente: {summary.get('date_range', '-')}",
                 f"Geslachten: {', '.join(str(x) for x in summary.get('genders', [])) if summary else '-'}",
                 f"Top gebieden: {summary.get('top_areas', '-') if summary else '-'}",
                 f"Meest voorkomende misdrijf: {summary.get('top_crime', '-')} ({summary.get('top_crime_count', '-')})"
@@ -350,21 +384,21 @@ class AppGUI(tk.Frame):
 
     # --- Query Handlers ---
 
-    def query_arrests_per_time_period(self, period, user_id):
-        result = query_arrests_by_time_period(self.connection, period , user_id)
-        if "error" in result:
-            self.query_result_label.config(text=f"Error: {result['error']}")
-        else:
-            data = result["data"]
-            result_text = "\n".join([f"{key}: {value}" for key, value in data.items()])
-            self.query_result_label.config(text=f"Arrests by {period}:\n{result_text}")
-
     def query_arrests_per_area(self, area_id, user_id):
-        result = query_arrests_by_area(self.connection, area_id , user_id)
+            result = query_arrests_by_area(self.connection, area_id , user_id)
+            if "error" in result:
+                self.query_result_label.config(text=f"Error: {result['error']}")
+            else:
+                self.query_result_label.config(text=f"Arrests in area {area_id}: {result['arrests']}")
+                
+    def query_arrests_by_descent(self, descent, user_id):
+        result = query_arrests_by_descent(self.connection, descent, user_id)
         if "error" in result:
             self.query_result_label.config(text=f"Error: {result['error']}")
         else:
-            self.query_result_label.config(text=f"Arrests in area {area_id}: {result['arrests']}")
+            descent_code = result["descent_code"]
+            arrests = result["arrests"]
+            self.query_result_label.config(text=f"Arrests for descent '{descent_code}': {arrests}")
 
     def query_age_distribution(self, user_id):
         result = query_age_distribution(self.connection, user_id)
@@ -436,6 +470,16 @@ class AppGUI(tk.Frame):
         except Exception as e:
             self.query_result_label.config(text=f"Error displaying plot: {e}")
 
+    def logout(self):
+        """Handle user logout."""
+        confirm = messagebox.askyesno("Logout", "Are you sure you want to logout?")
+        if confirm:
+            if self.controller:
+                self.controller.destroy()
+            else:
+                self.quit()
+            import sys
+            sys.exit(0)
 def start_app_gui(root, connection, user):
     app = AppGUI(root, root, connection, user)
     root.mainloop()

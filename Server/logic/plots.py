@@ -14,11 +14,17 @@ DATA_PATH = "Server/database/Arrest_Data_from_2020_to_Present.csv"
 
 def preprocess_data():
     df = pd.read_csv(DATA_PATH)
+    #data name datetime format voor pandas
     df['Arrest Date'] = pd.to_datetime(df['Arrest Date'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
+    #belangrijke rijen verwijderen als de kolomen niet zijn ingevuld
     df.dropna(subset=['Age', 'Sex Code', 'Descent Code', 'Arrest Date', 'Area ID', 'Charge Description'], inplace=True)
+    # kolmmen omzetten naar categorieen
     df['Sex Code'] = df['Sex Code'].astype('category')
     df['Descent Code'] = df['Descent Code'].astype('category')
+    #omdat het een identificatie code is
     df['Area ID'] = df['Area ID'].astype(str)
+    # de leeftijd van onrealistische waarden filteren
+    # 10-100 jaar
     df = df[(df['Age'] > 10) & (df['Age'] < 100)] 
     return df
 

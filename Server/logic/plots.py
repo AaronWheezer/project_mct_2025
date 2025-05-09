@@ -18,7 +18,12 @@ def preprocess_data():
     df['Arrest Date'] = pd.to_datetime(df['Arrest Date'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
     #belangrijke rijen verwijderen als de kolomen niet zijn ingevuld
     df.dropna(subset=['Age', 'Sex Code', 'Descent Code', 'Arrest Date', 'Area ID', 'Charge Description'], inplace=True)
-    # kolmmen omzetten naar categorieen
+    # drop van de rijen waar deze kolommen niet zijn ingevuld, dit is niet nodig omdat ik die niet gebruik
+#     df.dropna(subset=[
+#     'Age', 'Sex Code', 'Descent Code', 'Arrest Date', 'Area ID', 'Charge Description',
+#     'Time', 'Charge Group Description'
+#       ], inplace=True)
+    # kolommen omzetten naar categorieën
     df['Sex Code'] = df['Sex Code'].astype('category')
     df['Descent Code'] = df['Descent Code'].astype('category')
     #omdat het een identificatie code is
